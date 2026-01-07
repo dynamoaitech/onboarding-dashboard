@@ -1,10 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import Login from './components/Login';
+import Signup from './components/Signup';
+import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
 
 const CATEGORIES = ['Admin', 'Technical', 'Relationship', 'Strategic', 'Leadership', 'Biz Dev'];
 const PRIORITIES = ['High', 'Medium', 'Low'];
 
 export default function App() {
+  // Authentication state
+  const [authState, setAuthState] = useState('loading'); // loading | authenticated | unauthenticated
+  const [user, setUser] = useState(null); // { id, name, email }
+  const [authView, setAuthView] = useState('login'); // login | signup | forgot | reset
+
+  // Dashboard state
   const [tab, setTab] = useState('dashboard');
   const [currentDay, setCurrentDay] = useState(1);
   const [tasks, setTasks] = useState([]);
@@ -26,8 +36,52 @@ export default function App() {
   const [editingTask, setEditingTask] = useState(null);
   const [newTask, setNewTask] = useState({ week: 1, day: 1, task: '', category: 'Admin', priority: 'High' });
 
-  // Load data from API on mount
+  // Check authentication on mount
   useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      const res = await fetch('/api/auth');
+      if (res.ok) {
+        const userData = await res.json();
+        setUser(userData);
+        setAuthState('authenticated');
+      } else {
+        setAuthState('unauthenticated');
+      }
+    } catch {
+      setAuthState('unauthenticated');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'logout' })
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    setAuthState('unauthenticated');
+    setUser(null);
+    setTasks([]);
+    setCompleted({});
+    setRelationships([]);
+    setWins([]);
+    setWeekNotes({ 1: '', 2: '', 3: '', 4: '' });
+  };
+
+  // Load data from API on mount (only when authenticated)
+  useEffect(() => {
+    if (authState !== 'authenticated') {
+      setLoading(false);
+      return;
+    }
+
     const loadData = async () => {
       try {
         // Load tasks
@@ -40,6 +94,9 @@ export default function App() {
             if (task.status === 'completed') completedMap[task.id] = true;
           });
           setCompleted(completedMap);
+        } else if (tasksRes.status === 401) {
+          setAuthState('unauthenticated');
+          return;
         }
 
         // Load relationships
@@ -76,7 +133,7 @@ export default function App() {
     };
 
     loadData();
-  }, []);
+  }, [authState]);
 
   // Toggle task completion and save to API
   const toggle = async (id) => {
@@ -230,7 +287,8 @@ export default function App() {
 
   const catColor = { Admin: 'bg-blue-100 text-blue-700', Technical: 'bg-purple-100 text-purple-700', Relationship: 'bg-green-100 text-green-700', Strategic: 'bg-orange-100 text-orange-700', Leadership: 'bg-pink-100 text-pink-700', 'Biz Dev': 'bg-yellow-100 text-yellow-700' };
 
-  if (loading) {
+  // Show loading screen while checking auth
+  if (authState === 'loading') {
     return (
       <div className="min-h-screen bg-gray-500 flex items-center justify-center">
         <div className="text-center">
@@ -240,21 +298,50 @@ export default function App() {
     );
   }
 
+  // Show auth screens when not authenticated
+  if (authState === 'unauthenticated') {
+    return (
+      <div className="min-h-screen bg-gray-500 flex items-center justify-center">
+        {authView === 'login' && <Login onSuccess={checkAuth} onNavigate={setAuthView} />}
+        {authView === 'signup' && <Signup onSuccess={checkAuth} onNavigate={setAuthView} />}
+        {authView === 'forgot' && <ForgotPassword onNavigate={setAuthView} />}
+        {authView === 'reset' && <ResetPassword onSuccess={() => setAuthView('login')} />}
+      </div>
+    );
+  }
+
+  // Show loading screen while fetching dashboard data
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-500 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg font-semibold text-white">Loading dashboard...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Authenticated dashboard view
   return (
     <div className="min-h-screen bg-gray-500 text-slate-800">
       <header className="bg-white border-b px-4 py-3 sticky top-0 z-10">
         <div className="flex justify-between items-center max-w-4xl mx-auto">
           <div>
             <h1 className="font-bold text-lg">Onboarding Command Center</h1>
-            <p className="text-xs text-slate-500">Principal/Lead Assurer • Apex Companies</p>
+            <p className="text-xs text-slate-500">{user?.name} • {user?.email}</p>
           </div>
-          <div className="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-1">
-            <button onClick={() => setCurrentDay(Math.max(1, currentDay-1))} className="text-slate-400 hover:text-slate-600 text-lg">−</button>
-            <div className="text-center">
-              <div className="text-xs text-slate-500">Day</div>
-              <div className="text-xl font-bold text-blue-600">{currentDay}</div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-1">
+              <button onClick={() => setCurrentDay(Math.max(1, currentDay-1))} className="text-slate-400 hover:text-slate-600 text-lg">−</button>
+              <div className="text-center">
+                <div className="text-xs text-slate-500">Day</div>
+                <div className="text-xl font-bold text-blue-600">{currentDay}</div>
+              </div>
+              <button onClick={() => setCurrentDay(Math.min(30, currentDay+1))} className="text-slate-400 hover:text-slate-600 text-lg">+</button>
             </div>
-            <button onClick={() => setCurrentDay(Math.min(30, currentDay+1))} className="text-slate-400 hover:text-slate-600 text-lg">+</button>
+            <button onClick={handleLogout} className="px-3 py-1.5 text-sm bg-slate-200 hover:bg-slate-300 rounded-lg transition-colors">
+              Logout
+            </button>
           </div>
         </div>
       </header>
