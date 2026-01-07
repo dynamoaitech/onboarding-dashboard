@@ -1,42 +1,5 @@
 import React, { useState, useEffect } from 'react';
 
-const TASKS = [
-  { id: 1, week: 1, day: 1, task: "Complete HR paperwork and benefits enrollment", category: "Admin", priority: "High" },
-  { id: 2, week: 1, day: 1, task: "Set up IT access (email, systems, VPN)", category: "Admin", priority: "High" },
-  { id: 3, week: 1, day: 1, task: "Meet with direct manager - clarify expectations", category: "Relationship", priority: "High" },
-  { id: 4, week: 1, day: 1, task: "Request organizational chart", category: "Admin", priority: "Medium" },
-  { id: 5, week: 1, day: 1, task: "Schedule 1:1s with direct reports", category: "Relationship", priority: "High" },
-  { id: 6, week: 1, day: 2, task: "Review Apex quality management system", category: "Technical", priority: "High" },
-  { id: 7, week: 1, day: 2, task: "Study accreditation documentation", category: "Technical", priority: "High" },
-  { id: 8, week: 1, day: 3, task: "Review current service offerings", category: "Technical", priority: "High" },
-  { id: 9, week: 1, day: 3, task: "Study ISO 14044 documentation", category: "Technical", priority: "High" },
-  { id: 10, week: 1, day: 3, task: "Study ISO 14067 documentation", category: "Technical", priority: "High" },
-  { id: 11, week: 1, day: 4, task: "Review sample verification reports", category: "Technical", priority: "Medium" },
-  { id: 12, week: 1, day: 5, task: "Review PCR documents in your domain", category: "Technical", priority: "Medium" },
-  { id: 13, week: 1, day: 5, task: "Identify gaps in team capabilities", category: "Strategic", priority: "Medium" },
-  { id: 14, week: 1, day: 6, task: "Meet with Quality Manager", category: "Relationship", priority: "High" },
-  { id: 15, week: 1, day: 6, task: "Meet with 2-3 peer principals", category: "Relationship", priority: "Medium" },
-  { id: 16, week: 1, day: 7, task: "Prepare Week 1 summary for manager", category: "Admin", priority: "High" },
-  { id: 17, week: 2, day: 8, task: "Shadow team on active verification audit", category: "Technical", priority: "High" },
-  { id: 18, week: 2, day: 9, task: "Attend client meeting as observer", category: "Relationship", priority: "Medium" },
-  { id: 19, week: 2, day: 10, task: "Meet with Business Development team", category: "Relationship", priority: "High" },
-  { id: 20, week: 2, day: 11, task: "Begin technical review of assigned project", category: "Technical", priority: "High" },
-  { id: 21, week: 2, day: 12, task: "Identify 2-3 market expansion opportunities", category: "Strategic", priority: "Medium" },
-  { id: 22, week: 2, day: 14, task: "Prepare Week 2 summary", category: "Admin", priority: "High" },
-  { id: 23, week: 3, day: 15, task: "Lead/co-lead a verification project", category: "Technical", priority: "High" },
-  { id: 24, week: 3, day: 16, task: "Conduct knowledge-sharing session", category: "Leadership", priority: "High" },
-  { id: 25, week: 3, day: 18, task: "Contribute to proposal/client deliverable", category: "Biz Dev", priority: "High" },
-  { id: 26, week: 3, day: 19, task: "Present process improvement recommendations", category: "Strategic", priority: "High" },
-  { id: 27, week: 3, day: 21, task: "Draft preliminary 90-day vision", category: "Strategic", priority: "High" },
-  { id: 28, week: 4, day: 22, task: "Complete significant technical deliverable", category: "Technical", priority: "High" },
-  { id: 29, week: 4, day: 23, task: "Lead client presentation or meeting", category: "Relationship", priority: "High" },
-  { id: 30, week: 4, day: 24, task: "Submit proposal or scope document", category: "Biz Dev", priority: "High" },
-  { id: 31, week: 4, day: 26, task: "Meet with skip-level manager", category: "Relationship", priority: "High" },
-  { id: 32, week: 4, day: 27, task: "Finalize 30-day assessment", category: "Strategic", priority: "High" },
-  { id: 33, week: 4, day: 28, task: "Present 60/90-day strategic plan", category: "Strategic", priority: "High" },
-  { id: 34, week: 4, day: 30, task: "Set personal development goals", category: "Strategic", priority: "Medium" },
-];
-
 const SCENARIOS = [
   { title: "Skip-Level Asks About Problems", situation: "Your skip-level asks how things are going", wrong: "Complain about processes or people", right: "\"Things are going well. I'm learning a lot and [manager] has been very helpful. We're working through some improvements together. Is there anything specific you'd like me to focus on?\"", why: "Positive, credits manager, redirects to their priorities" },
   { title: "Asked to Do Something Below Your Level", situation: "Manager asks you to do admin work", wrong: "\"That's not in my job description.\"", right: "\"Happy to help. Can we discuss how to balance it with [priority]? I want to focus where I add most value.\"", why: "Shows flexibility while redirecting" },
@@ -52,9 +15,13 @@ const PHRASES = [
   { situation: "Disagreeing with senior", phrase: "\"I see the logic. One thing I've seen work is...\"" },
 ];
 
+const CATEGORIES = ['Admin', 'Technical', 'Relationship', 'Strategic', 'Leadership', 'Biz Dev'];
+const PRIORITIES = ['High', 'Medium', 'Low'];
+
 export default function App() {
   const [tab, setTab] = useState('dashboard');
   const [currentDay, setCurrentDay] = useState(1);
+  const [tasks, setTasks] = useState([]);
   const [completed, setCompleted] = useState({});
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [wins, setWins] = useState([]);
@@ -70,15 +37,19 @@ export default function App() {
   const [expandedScenario, setExpandedScenario] = useState(null);
   const [weekNotes, setWeekNotes] = useState({ 1: '', 2: '', 3: '', 4: '' });
   const [loading, setLoading] = useState(true);
+  const [showNewTaskForm, setShowNewTaskForm] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
+  const [newTask, setNewTask] = useState({ week: 1, day: 1, task: '', category: 'Admin', priority: 'High' });
 
   // Load data from API on mount
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load tasks completion status
+        // Load tasks
         const tasksRes = await fetch('/api/tasks');
         if (tasksRes.ok) {
           const tasksData = await tasksRes.json();
+          setTasks(tasksData);
           const completedMap = {};
           tasksData.forEach(task => {
             if (task.status === 'completed') completedMap[task.id] = true;
@@ -138,6 +109,65 @@ export default function App() {
     }
   };
 
+  // Create new task
+  const createTask = async () => {
+    if (!newTask.task.trim()) return;
+
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', ...newTask })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const createdTask = { ...newTask, id: data.id, status: 'pending' };
+        setTasks([...tasks, createdTask]);
+        setNewTask({ week: selectedWeek, day: 1, task: '', category: 'Admin', priority: 'High' });
+        setShowNewTaskForm(false);
+      }
+    } catch (error) {
+      console.error('Error creating task:', error);
+    }
+  };
+
+  // Update task
+  const updateTask = async (updatedTask) => {
+    try {
+      await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update', ...updatedTask })
+      });
+
+      setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+      setEditingTask(null);
+    } catch (error) {
+      console.error('Error updating task:', error);
+    }
+  };
+
+  // Delete task
+  const deleteTask = async (id) => {
+    if (!confirm('Delete this task?')) return;
+
+    try {
+      await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id })
+      });
+
+      setTasks(tasks.filter(t => t.id !== id));
+      const newCompleted = { ...completed };
+      delete newCompleted[id];
+      setCompleted(newCompleted);
+    } catch (error) {
+      console.error('Error deleting task:', error);
+    }
+  };
+
   // Update relationship and save to API
   const updateRelationship = async (id, field, value) => {
     const updated = relationships.map(x => x.id === id ? {...x, [field]: value} : x);
@@ -193,10 +223,10 @@ export default function App() {
     }, 1000);
   };
 
-  const todayTasks = TASKS.filter(t => t.day === currentDay);
-  const weekTasks = TASKS.filter(t => t.week === selectedWeek);
+  const todayTasks = tasks.filter(t => t.day === currentDay);
+  const weekTasks = tasks.filter(t => t.week === selectedWeek);
   const doneCount = Object.values(completed).filter(Boolean).length;
-  const highPriority = TASKS.filter(t => t.priority === 'High' && !completed[t.id]).length;
+  const highPriority = tasks.filter(t => t.priority === 'High' && !completed[t.id]).length;
 
   const catColor = { Admin: 'bg-blue-100 text-blue-700', Technical: 'bg-purple-100 text-purple-700', Relationship: 'bg-green-100 text-green-700', Strategic: 'bg-orange-100 text-orange-700', Leadership: 'bg-pink-100 text-pink-700', 'Biz Dev': 'bg-yellow-100 text-yellow-700' };
 
@@ -241,7 +271,7 @@ export default function App() {
         {tab === 'dashboard' && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-white rounded-xl p-4 shadow-sm"><div className="text-2xl font-bold text-blue-600">{doneCount}/{TASKS.length}</div><div className="text-xs text-slate-500">Tasks Done</div></div>
+              <div className="bg-white rounded-xl p-4 shadow-sm"><div className="text-2xl font-bold text-blue-600">{doneCount}/{tasks.length}</div><div className="text-xs text-slate-500">Tasks Done</div></div>
               <div className="bg-white rounded-xl p-4 shadow-sm"><div className="text-2xl font-bold text-red-500">{highPriority}</div><div className="text-xs text-slate-500">High Priority Left</div></div>
               <div className="bg-white rounded-xl p-4 shadow-sm"><div className="text-2xl font-bold text-green-600">{relationships.filter(r=>r.name).length}/{relationships.length}</div><div className="text-xs text-slate-500">Contacts Made</div></div>
               <div className="bg-white rounded-xl p-4 shadow-sm"><div className="text-2xl font-bold text-yellow-500">{wins.length}</div><div className="text-xs text-slate-500">Wins Logged</div></div>
@@ -268,17 +298,90 @@ export default function App() {
 
         {tab === 'tasks' && (
           <div className="space-y-4">
-            <div className="flex gap-2">{[1,2,3,4].map(w => <button key={w} onClick={() => setSelectedWeek(w)} className={`px-4 py-2 rounded-lg ${selectedWeek === w ? 'bg-blue-600 text-white' : 'bg-white'}`}>Week {w}</button>)}</div>
+            <div className="flex gap-2 justify-between items-center">
+              <div className="flex gap-2">{[1,2,3,4].map(w => <button key={w} onClick={() => setSelectedWeek(w)} className={`px-4 py-2 rounded-lg ${selectedWeek === w ? 'bg-blue-600 text-white' : 'bg-white'}`}>Week {w}</button>)}</div>
+              <button onClick={() => { setNewTask({ week: selectedWeek, day: selectedWeek * 7 - 6, task: '', category: 'Admin', priority: 'High' }); setShowNewTaskForm(true); }} className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2">
+                <span className="text-lg">+</span> Add Task
+              </button>
+            </div>
+
+            {showNewTaskForm && (
+              <div className="bg-white rounded-xl shadow-sm p-4">
+                <div className="font-semibold mb-3">New Task</div>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-500">Week</label>
+                      <input type="number" min="1" max="4" value={newTask.week} onChange={e => setNewTask({...newTask, week: parseInt(e.target.value)})} className="w-full px-3 py-2 border rounded-lg" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500">Day</label>
+                      <input type="number" min="1" max="30" value={newTask.day} onChange={e => setNewTask({...newTask, day: parseInt(e.target.value)})} className="w-full px-3 py-2 border rounded-lg" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500">Task Description</label>
+                    <input type="text" value={newTask.task} onChange={e => setNewTask({...newTask, task: e.target.value})} placeholder="Enter task description..." className="w-full px-3 py-2 border rounded-lg" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-500">Category</label>
+                      <select value={newTask.category} onChange={e => setNewTask({...newTask, category: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500">Priority</label>
+                      <select value={newTask.priority} onChange={e => setNewTask({...newTask, priority: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+                        {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={createTask} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Create</button>
+                    <button onClick={() => setShowNewTaskForm(false)} className="px-4 py-2 bg-slate-200 rounded-lg">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
               {weekTasks.map(t => (
-                <div key={t.id} onClick={() => toggle(t.id)} className="px-4 py-3 border-b flex items-center gap-3 cursor-pointer hover:bg-slate-50">
-                  <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-xs ${completed[t.id] ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300'}`}>{completed[t.id] && '✓'}</span>
-                  <span className="text-xs text-slate-400 w-10">Day {t.day}</span>
-                  <span className={`flex-1 ${completed[t.id] ? 'line-through text-slate-400' : ''}`}>{t.task}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded ${catColor[t.category]}`}>{t.category}</span>
-                  <span className={`text-xs ${t.priority === 'High' ? 'text-red-500 font-bold' : 'text-slate-400'}`}>{t.priority}</span>
-                </div>
+                editingTask?.id === t.id ? (
+                  <div key={t.id} className="px-4 py-3 border-b bg-slate-50">
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="number" min="1" max="4" value={editingTask.week} onChange={e => setEditingTask({...editingTask, week: parseInt(e.target.value)})} className="px-2 py-1 border rounded text-sm" placeholder="Week" />
+                        <input type="number" min="1" max="30" value={editingTask.day} onChange={e => setEditingTask({...editingTask, day: parseInt(e.target.value)})} className="px-2 py-1 border rounded text-sm" placeholder="Day" />
+                      </div>
+                      <input type="text" value={editingTask.task} onChange={e => setEditingTask({...editingTask, task: e.target.value})} className="w-full px-2 py-1 border rounded text-sm" />
+                      <div className="grid grid-cols-2 gap-2">
+                        <select value={editingTask.category} onChange={e => setEditingTask({...editingTask, category: e.target.value})} className="px-2 py-1 border rounded text-sm">
+                          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <select value={editingTask.priority} onChange={e => setEditingTask({...editingTask, priority: e.target.value})} className="px-2 py-1 border rounded text-sm">
+                          {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => updateTask(editingTask)} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">Save</button>
+                        <button onClick={() => setEditingTask(null)} className="px-3 py-1 bg-slate-200 rounded text-sm">Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={t.id} className="px-4 py-3 border-b flex items-center gap-3 hover:bg-slate-50">
+                    <span onClick={() => toggle(t.id)} className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-xs cursor-pointer ${completed[t.id] ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300'}`}>{completed[t.id] && '✓'}</span>
+                    <span className="text-xs text-slate-400 w-10">Day {t.day}</span>
+                    <span className={`flex-1 ${completed[t.id] ? 'line-through text-slate-400' : ''}`}>{t.task}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded ${catColor[t.category]}`}>{t.category}</span>
+                    <span className={`text-xs ${t.priority === 'High' ? 'text-red-500 font-bold' : 'text-slate-400'}`}>{t.priority}</span>
+                    <button onClick={() => setEditingTask(t)} className="text-blue-600 hover:text-blue-800 text-sm">✏️</button>
+                    <button onClick={() => deleteTask(t.id)} className="text-red-600 hover:text-red-800 text-sm">🗑️</button>
+                  </div>
+                )
               ))}
+              {weekTasks.length === 0 && <div className="p-8 text-center text-slate-400">No tasks for Week {selectedWeek}</div>}
             </div>
           </div>
         )}
