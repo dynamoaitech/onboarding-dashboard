@@ -1,21 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-const SCENARIOS = [
-  { title: "Skip-Level Asks About Problems", situation: "Your skip-level asks how things are going", wrong: "Complain about processes or people", right: "\"Things are going well. I'm learning a lot and [manager] has been very helpful. We're working through some improvements together. Is there anything specific you'd like me to focus on?\"", why: "Positive, credits manager, redirects to their priorities" },
-  { title: "Asked to Do Something Below Your Level", situation: "Manager asks you to do admin work", wrong: "\"That's not in my job description.\"", right: "\"Happy to help. Can we discuss how to balance it with [priority]? I want to focus where I add most value.\"", why: "Shows flexibility while redirecting" },
-  { title: "Peer Takes Credit for Your Work", situation: "Colleague presents your idea as theirs", wrong: "\"Actually, that was my idea.\"", right: "\"Glad to see this gaining traction. When I was exploring this, I also found [insight]. Would it help if I shared my notes?\"", why: "Subtly establishes involvement, adds value" },
-  { title: "You Make a Mistake", situation: "You made an error affecting a deliverable", wrong: "\"It wasn't entirely my fault...\"", right: "\"I made an error on [X]. Here's what happened, the impact, and my plan to fix it. I wanted you to know immediately.\"", why: "Takes ownership, shows problem-solving" },
-];
-
-const PHRASES = [
-  { situation: "Entering a discussion", phrase: "\"Building on what [name] said...\"" },
-  { situation: "Offering different view", phrase: "\"Another lens to consider...\"" },
-  { situation: "Admitting uncertainty", phrase: "\"I don't have the full picture yet, but...\"" },
-  { situation: "Volunteering", phrase: "\"I can take point on that and report back by [date].\"" },
-  { situation: "Disagreeing with senior", phrase: "\"I see the logic. One thing I've seen work is...\"" },
-];
-
 const CATEGORIES = ['Admin', 'Technical', 'Relationship', 'Strategic', 'Leadership', 'Biz Dev'];
 const PRIORITIES = ['High', 'Medium', 'Low'];
 
@@ -35,7 +20,6 @@ export default function App() {
     { id: 5, name: '', role: 'Peer Principal', importance: 'Medium', status: 'New' },
     { id: 6, name: '', role: 'Direct Report', importance: 'High', status: 'New' },
   ]);
-  const [expandedScenario, setExpandedScenario] = useState(null);
   const [weekNotes, setWeekNotes] = useState({ 1: '', 2: '', 3: '', 4: '' });
   const [loading, setLoading] = useState(true);
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
@@ -277,7 +261,7 @@ export default function App() {
 
       <nav className="bg-white border-b px-4 py-2 overflow-x-auto sticky top-16 z-10">
         <div className="flex gap-1 max-w-4xl mx-auto">
-          {[['dashboard','📊 Dashboard'],['tasks','✅ Tasks'],['people','👥 People'],['playbook','📖 Playbook'],['weekly','📅 Weekly'],['wins','🏆 Wins'],['progress','📈 Progress']].map(([k,l]) => (
+          {[['dashboard','📊 Dashboard'],['tasks','✅ Tasks'],['people','👥 People'],['weekly','📅 Weekly'],['wins','🏆 Wins'],['progress','📈 Progress']].map(([k,l]) => (
             <button key={k} onClick={() => setTab(k)} className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap ${tab === k ? 'bg-blue-600 text-white' : 'hover:bg-slate-100'}`}>{l}</button>
           ))}
         </div>
@@ -414,29 +398,6 @@ export default function App() {
                 </tr>
               ))}</tbody>
             </table>
-          </div>
-        )}
-
-        {tab === 'playbook' && (
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <div className="font-semibold mb-3">🎤 Power Phrases for Meetings</div>
-              <div className="grid md:grid-cols-2 gap-2">{PHRASES.map((p,i) => <div key={i} className="p-2 bg-slate-50 rounded-lg"><div className="text-xs text-slate-500">{p.situation}</div><div className="text-sm font-medium text-blue-700">{p.phrase}</div></div>)}</div>
-            </div>
-            <div className="font-semibold">📋 Scenario Playbook</div>
-            {SCENARIOS.map((s,i) => (
-              <div key={i} className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <button onClick={() => setExpandedScenario(expandedScenario === i ? null : i)} className="w-full px-4 py-3 flex justify-between items-center hover:bg-slate-50"><span className="font-medium">{s.title}</span><span className="text-slate-400">{expandedScenario === i ? '−' : '+'}</span></button>
-                {expandedScenario === i && (
-                  <div className="px-4 pb-4 space-y-2">
-                    <div className="p-2 bg-slate-50 rounded text-sm"><span className="text-slate-500">Situation:</span> {s.situation}</div>
-                    <div className="p-2 bg-red-50 rounded text-sm border-l-4 border-red-400"><span className="text-red-600">❌ Don't:</span> {s.wrong}</div>
-                    <div className="p-2 bg-green-50 rounded text-sm border-l-4 border-green-400"><span className="text-green-600">✅ Do:</span> {s.right}</div>
-                    <div className="p-2 bg-blue-50 rounded text-sm"><span className="text-blue-600">💡 Why:</span> {s.why}</div>
-                  </div>
-                )}
-              </div>
-            ))}
           </div>
         )}
 
