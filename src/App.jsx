@@ -111,7 +111,10 @@ export default function App() {
 
   // Create new task
   const createTask = async () => {
-    if (!newTask.task.trim()) return;
+    if (!newTask.task.trim()) {
+      alert('Please enter a task description');
+      return;
+    }
 
     try {
       const res = await fetch('/api/tasks', {
@@ -120,15 +123,27 @@ export default function App() {
         body: JSON.stringify({ action: 'create', ...newTask })
       });
 
-      if (res.ok) {
-        const data = await res.json();
+      const data = await res.json();
+
+      if (res.ok && data.success) {
         const createdTask = { ...newTask, id: data.id, status: 'pending' };
         setTasks([...tasks, createdTask]);
         setNewTask({ week: selectedWeek, day: 1, task: '', category: 'Admin', priority: 'High' });
         setShowNewTaskForm(false);
+
+        // Reload tasks from server to ensure sync
+        const tasksRes = await fetch('/api/tasks');
+        if (tasksRes.ok) {
+          const tasksData = await tasksRes.json();
+          setTasks(tasksData);
+        }
+      } else {
+        console.error('Failed to create task:', data);
+        alert('Failed to create task: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error creating task:', error);
+      alert('Error creating task: ' + error.message);
     }
   };
 
@@ -321,7 +336,7 @@ export default function App() {
                   </div>
                   <div>
                     <label className="text-xs text-slate-500">Task Description</label>
-                    <input type="text" value={newTask.task} onChange={e => setNewTask({...newTask, task: e.target.value})} placeholder="Enter task description..." className="w-full px-3 py-2 border rounded-lg" />
+                    <input type="text" value={newTask.task} onChange={e => setNewTask({...newTask, task: e.target.value})} onKeyDown={e => { if (e.key === 'Enter') createTask(); }} placeholder="Enter task description..." className="w-full px-3 py-2 border rounded-lg" />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>

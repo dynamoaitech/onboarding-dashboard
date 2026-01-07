@@ -38,9 +38,16 @@ export async function onRequestPost({ request, env }) {
     if (action === 'create') {
       const { week, day, task, category, priority } = data;
 
+      if (!task || !category || !priority) {
+        return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
       const result = await env.DB.prepare(
         'INSERT INTO tasks (week, day, task, category, priority, status) VALUES (?, ?, ?, ?, ?, ?)'
-      ).bind(week, day, task, category, priority, 'pending').run();
+      ).bind(week || 1, day || 1, task, category, priority, 'pending').run();
 
       return new Response(JSON.stringify({ success: true, id: result.meta.last_row_id }), {
         headers: { 'Content-Type': 'application/json' }
