@@ -81,7 +81,7 @@ export default function App() {
           const tasksData = await tasksRes.json();
           const completedMap = {};
           tasksData.forEach(task => {
-            if (task.completed) completedMap[task.id] = true;
+            if (task.status === 'completed') completedMap[task.id] = true;
           });
           setCompleted(completedMap);
         }

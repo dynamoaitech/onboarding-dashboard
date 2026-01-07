@@ -19,9 +19,12 @@ export async function onRequestPost({ request, env }) {
   try {
     const { id, completed } = await request.json();
 
+    // Convert boolean to status string
+    const status = completed ? 'completed' : 'pending';
+
     await env.DB.prepare(
-      'UPDATE tasks SET completed = ? WHERE id = ?'
-    ).bind(completed ? 1 : 0, id).run();
+      'UPDATE tasks SET status = ? WHERE id = ?'
+    ).bind(status, id).run();
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json' }
