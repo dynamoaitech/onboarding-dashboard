@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const TASKS = [
   { id: 1, week: 1, day: 1, task: "Complete HR paperwork and benefits enrollment", category: "Admin", priority: "High" },
@@ -69,14 +69,146 @@ export default function App() {
   ]);
   const [expandedScenario, setExpandedScenario] = useState(null);
   const [weekNotes, setWeekNotes] = useState({ 1: '', 2: '', 3: '', 4: '' });
+  const [loading, setLoading] = useState(true);
 
-  const toggle = (id) => setCompleted({ ...completed, [id]: !completed[id] });
+  // Load data from API on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // Load tasks completion status
+        const tasksRes = await fetch('/api/tasks');
+        if (tasksRes.ok) {
+          const tasksData = await tasksRes.json();
+          const completedMap = {};
+          tasksData.forEach(task => {
+            if (task.completed) completedMap[task.id] = true;
+          });
+          setCompleted(completedMap);
+        }
+
+        // Load relationships
+        const relationshipsRes = await fetch('/api/relationships');
+        if (relationshipsRes.ok) {
+          const relationshipsData = await relationshipsRes.json();
+          if (relationshipsData.length > 0) {
+            setRelationships(relationshipsData);
+          }
+        }
+
+        // Load wins
+        const winsRes = await fetch('/api/wins');
+        if (winsRes.ok) {
+          const winsData = await winsRes.json();
+          setWins(winsData);
+        }
+
+        // Load weekly notes
+        const weeklyRes = await fetch('/api/weekly');
+        if (weeklyRes.ok) {
+          const weeklyData = await weeklyRes.json();
+          const notesMap = { 1: '', 2: '', 3: '', 4: '' };
+          weeklyData.forEach(log => {
+            notesMap[log.week] = log.notes || '';
+          });
+          setWeekNotes(notesMap);
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Toggle task completion and save to API
+  const toggle = async (id) => {
+    const newCompleted = { ...completed, [id]: !completed[id] };
+    setCompleted(newCompleted);
+
+    try {
+      await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, completed: newCompleted[id] })
+      });
+    } catch (error) {
+      console.error('Error saving task:', error);
+    }
+  };
+
+  // Update relationship and save to API
+  const updateRelationship = async (id, field, value) => {
+    const updated = relationships.map(x => x.id === id ? {...x, [field]: value} : x);
+    setRelationships(updated);
+
+    const relationship = updated.find(r => r.id === id);
+    try {
+      await fetch('/api/relationships', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name: relationship.name, status: relationship.status })
+      });
+    } catch (error) {
+      console.error('Error saving relationship:', error);
+    }
+  };
+
+  // Add win and save to API
+  const addWin = async () => {
+    if (!newWin.trim()) return;
+
+    const win = { text: newWin, day: currentDay };
+    setWins([...wins, win]);
+    setNewWin('');
+
+    try {
+      await fetch('/api/wins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(win)
+      });
+    } catch (error) {
+      console.error('Error saving win:', error);
+    }
+  };
+
+  // Update weekly notes and save to API (with debounce)
+  const updateWeeklyNotes = async (week, notes) => {
+    setWeekNotes({...weekNotes, [week]: notes});
+
+    // Debounce the API call
+    if (window.weeklyNotesTimer) clearTimeout(window.weeklyNotesTimer);
+    window.weeklyNotesTimer = setTimeout(async () => {
+      try {
+        await fetch('/api/weekly', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ week, notes })
+        });
+      } catch (error) {
+        console.error('Error saving weekly notes:', error);
+      }
+    }, 1000);
+  };
+
   const todayTasks = TASKS.filter(t => t.day === currentDay);
   const weekTasks = TASKS.filter(t => t.week === selectedWeek);
   const doneCount = Object.values(completed).filter(Boolean).length;
   const highPriority = TASKS.filter(t => t.priority === 'High' && !completed[t.id]).length;
 
   const catColor = { Admin: 'bg-blue-100 text-blue-700', Technical: 'bg-purple-100 text-purple-700', Relationship: 'bg-green-100 text-green-700', Strategic: 'bg-orange-100 text-orange-700', Leadership: 'bg-pink-100 text-pink-700', 'Biz Dev': 'bg-yellow-100 text-yellow-700' };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg font-semibold text-slate-600">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
@@ -127,8 +259,8 @@ export default function App() {
             <div className="bg-white rounded-xl shadow-sm p-4">
               <div className="font-semibold mb-2">Quick Win</div>
               <div className="flex gap-2">
-                <input value={newWin} onChange={e => setNewWin(e.target.value)} placeholder="Log an accomplishment..." className="flex-1 px-3 py-2 border rounded-lg" onKeyDown={e => { if (e.key === 'Enter' && newWin.trim()) { setWins([...wins, { text: newWin, day: currentDay }]); setNewWin(''); }}} />
-                <button onClick={() => { if (newWin.trim()) { setWins([...wins, { text: newWin, day: currentDay }]); setNewWin(''); }}} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Add</button>
+                <input value={newWin} onChange={e => setNewWin(e.target.value)} placeholder="Log an accomplishment..." className="flex-1 px-3 py-2 border rounded-lg" onKeyDown={e => { if (e.key === 'Enter') addWin(); }} />
+                <button onClick={addWin} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Add</button>
               </div>
             </div>
           </div>
@@ -157,9 +289,9 @@ export default function App() {
               <thead className="bg-slate-50"><tr><th className="px-3 py-2 text-left">Name</th><th className="px-3 py-2 text-left">Role</th><th className="px-3 py-2 text-left">Status</th></tr></thead>
               <tbody>{relationships.map(r => (
                 <tr key={r.id} className="border-t">
-                  <td className="px-3 py-2"><input value={r.name} onChange={e => setRelationships(relationships.map(x => x.id === r.id ? {...x, name: e.target.value} : x))} placeholder="Enter name..." className="w-full px-2 py-1 border rounded" /></td>
+                  <td className="px-3 py-2"><input value={r.name} onChange={e => updateRelationship(r.id, 'name', e.target.value)} placeholder="Enter name..." className="w-full px-2 py-1 border rounded" /></td>
                   <td className="px-3 py-2">{r.role}<span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${r.importance === 'Critical' ? 'bg-red-100 text-red-600' : r.importance === 'High' ? 'bg-orange-100 text-orange-600' : 'bg-slate-100'}`}>{r.importance}</span></td>
-                  <td className="px-3 py-2"><select value={r.status} onChange={e => setRelationships(relationships.map(x => x.id === r.id ? {...x, status: e.target.value} : x))} className="px-2 py-1 border rounded text-xs">{['New','Building','Strong','Needs Work'].map(s => <option key={s}>{s}</option>)}</select></td>
+                  <td className="px-3 py-2"><select value={r.status} onChange={e => updateRelationship(r.id, 'status', e.target.value)} className="px-2 py-1 border rounded text-xs">{['New','Building','Strong','Needs Work'].map(s => <option key={s}>{s}</option>)}</select></td>
                 </tr>
               ))}</tbody>
             </table>
@@ -194,7 +326,7 @@ export default function App() {
             <div className="flex gap-2">{[1,2,3,4].map(w => <button key={w} onClick={() => setSelectedWeek(w)} className={`px-4 py-2 rounded-lg ${selectedWeek === w ? 'bg-blue-600 text-white' : 'bg-white'}`}>Week {w}</button>)}</div>
             <div className="bg-white rounded-xl shadow-sm p-4">
               <div className="font-semibold mb-2">Week {selectedWeek} Progress Log</div>
-              <textarea value={weekNotes[selectedWeek]} onChange={e => setWeekNotes({...weekNotes, [selectedWeek]: e.target.value})} placeholder="Key accomplishments, challenges, lessons learned..." className="w-full h-40 px-3 py-2 border rounded-lg" />
+              <textarea value={weekNotes[selectedWeek]} onChange={e => updateWeeklyNotes(selectedWeek, e.target.value)} placeholder="Key accomplishments, challenges, lessons learned..." className="w-full h-40 px-3 py-2 border rounded-lg" />
               <div className="mt-3 p-3 bg-yellow-50 rounded-lg text-sm text-yellow-800"><strong>Friday Tip:</strong> Copy to email for your manager. Structure: Completed, In Progress, Planned, Need Input.</div>
             </div>
           </div>
@@ -205,8 +337,8 @@ export default function App() {
             <div className="bg-white rounded-xl shadow-sm p-4">
               <div className="font-semibold mb-2">🏆 Log Your Wins</div>
               <div className="flex gap-2">
-                <input value={newWin} onChange={e => setNewWin(e.target.value)} placeholder="What did you accomplish?" className="flex-1 px-3 py-2 border rounded-lg" onKeyDown={e => { if (e.key === 'Enter' && newWin.trim()) { setWins([...wins, { text: newWin, day: currentDay }]); setNewWin(''); }}} />
-                <button onClick={() => { if (newWin.trim()) { setWins([...wins, { text: newWin, day: currentDay }]); setNewWin(''); }}} className="px-4 py-2 bg-yellow-500 text-white rounded-lg">Add</button>
+                <input value={newWin} onChange={e => setNewWin(e.target.value)} placeholder="What did you accomplish?" className="flex-1 px-3 py-2 border rounded-lg" onKeyDown={e => { if (e.key === 'Enter') addWin(); }} />
+                <button onClick={addWin} className="px-4 py-2 bg-yellow-500 text-white rounded-lg">Add</button>
               </div>
             </div>
             {wins.length ? wins.map((w,i) => <div key={i} className="bg-white rounded-xl shadow-sm p-4 flex gap-3"><span className="text-yellow-500">🏆</span><div><div>{w.text}</div><div className="text-xs text-slate-400">Day {w.day}</div></div></div>) : <div className="bg-white rounded-xl shadow-sm p-8 text-center text-slate-400">No wins yet. Start logging!</div>}

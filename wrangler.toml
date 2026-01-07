@@ -1,0 +1,7 @@
+name = "onboarding-dashboard"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "apex-onboarding"
+database_id = "ad6d4806-b41b-4863-b4d9-c8353f1fc40b"
