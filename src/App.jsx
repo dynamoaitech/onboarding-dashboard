@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const SCENARIOS = [
   { title: "Skip-Level Asks About Problems", situation: "Your skip-level asks how things are going", wrong: "Complain about processes or people", right: "\"Things are going well. I'm learning a lot and [manager] has been very helpful. We're working through some improvements together. Is there anything specific you'd like me to focus on?\"", why: "Positive, credits manager, redirects to their priorities" },
@@ -276,7 +277,7 @@ export default function App() {
 
       <nav className="bg-white border-b px-4 py-2 overflow-x-auto sticky top-16 z-10">
         <div className="flex gap-1 max-w-4xl mx-auto">
-          {[['dashboard','📊 Dashboard'],['tasks','✅ Tasks'],['people','👥 People'],['playbook','📖 Playbook'],['weekly','📅 Weekly'],['wins','🏆 Wins']].map(([k,l]) => (
+          {[['dashboard','📊 Dashboard'],['tasks','✅ Tasks'],['people','👥 People'],['playbook','📖 Playbook'],['weekly','📅 Weekly'],['wins','🏆 Wins'],['progress','📈 Progress']].map(([k,l]) => (
             <button key={k} onClick={() => setTab(k)} className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap ${tab === k ? 'bg-blue-600 text-white' : 'hover:bg-slate-100'}`}>{l}</button>
           ))}
         </div>
@@ -460,6 +461,119 @@ export default function App() {
               </div>
             </div>
             {wins.length ? wins.map((w,i) => <div key={i} className="bg-white rounded-xl shadow-sm p-4 flex gap-3"><span className="text-yellow-500">🏆</span><div><div>{w.text}</div><div className="text-xs text-slate-400">Day {w.day}</div></div></div>) : <div className="bg-white rounded-xl shadow-sm p-8 text-center text-slate-400">No wins yet. Start logging!</div>}
+          </div>
+        )}
+
+        {tab === 'progress' && (
+          <div className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* Overall Progress - Pie Chart */}
+              <div className="bg-white rounded-xl shadow-sm p-4">
+                <div className="font-semibold mb-3">Overall Progress</div>
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Completed', value: doneCount },
+                        { name: 'Remaining', value: tasks.length - doneCount }
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      <Cell fill="#10b981" />
+                      <Cell fill="#e5e7eb" />
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="text-center mt-2">
+                  <div className="text-2xl font-bold text-blue-600">{tasks.length > 0 ? Math.round((doneCount / tasks.length) * 100) : 0}%</div>
+                  <div className="text-xs text-slate-500">{doneCount} of {tasks.length} tasks completed</div>
+                </div>
+              </div>
+
+              {/* Progress by Week - Bar Chart */}
+              <div className="bg-white rounded-xl shadow-sm p-4">
+                <div className="font-semibold mb-3">Progress by Week</div>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart
+                    data={[1,2,3,4].map(week => {
+                      const weekTasksData = tasks.filter(t => t.week === week);
+                      const weekCompleted = weekTasksData.filter(t => completed[t.id]).length;
+                      return {
+                        week: `Week ${week}`,
+                        Completed: weekCompleted,
+                        Remaining: weekTasksData.length - weekCompleted
+                      };
+                    })}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="week" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="Completed" stackId="a" fill="#10b981" />
+                    <Bar dataKey="Remaining" stackId="a" fill="#e5e7eb" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Progress by Category - Horizontal Bar Chart */}
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <div className="font-semibold mb-3">Progress by Category</div>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  layout="vertical"
+                  data={CATEGORIES.map(cat => {
+                    const catTasks = tasks.filter(t => t.category === cat);
+                    const catCompleted = catTasks.filter(t => completed[t.id]).length;
+                    return {
+                      category: cat,
+                      Completed: catCompleted,
+                      Remaining: catTasks.length - catCompleted
+                    };
+                  })}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis dataKey="category" type="category" width={100} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="Completed" stackId="a" fill="#10b981" />
+                  <Bar dataKey="Remaining" stackId="a" fill="#e5e7eb" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Daily Completion Trend - Line Chart */}
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <div className="font-semibold mb-3">Daily Completion Trend</div>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart
+                  data={Array.from({length: 30}, (_, i) => {
+                    const day = i + 1;
+                    const completedByDay = tasks.filter(t => t.day <= day && completed[t.id]).length;
+                    return {
+                      day: `Day ${day}`,
+                      Completed: completedByDay
+                    };
+                  })}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" interval={4} />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="Completed" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         )}
       </main>
