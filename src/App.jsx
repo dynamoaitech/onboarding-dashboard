@@ -247,7 +247,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="text-lg font-semibold text-slate-600">Loading...</div>
         </div>
@@ -256,7 +256,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800">
+    <div className="min-h-screen bg-gray-100 text-slate-800">
       <header className="bg-white border-b px-4 py-3 sticky top-0 z-10">
         <div className="flex justify-between items-center max-w-4xl mx-auto">
           <div>
