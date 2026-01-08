@@ -17,6 +17,7 @@ export default function App() {
   // Dashboard state
   const [tab, setTab] = useState('dashboard');
   const [currentDay, setCurrentDay] = useState(1);
+  const [actualDay, setActualDay] = useState(1); // User's real progress
   const [tasks, setTasks] = useState([]);
   const [completed, setCompleted] = useState({});
   const [selectedWeek, setSelectedWeek] = useState(1);
@@ -82,6 +83,12 @@ export default function App() {
       return;
     }
 
+    // Quick load from localStorage while API fetches
+    const cached = localStorage.getItem('actualDay');
+    if (cached) {
+      setActualDay(parseInt(cached));
+    }
+
     const loadData = async () => {
       try {
         // Load tasks
@@ -125,6 +132,16 @@ export default function App() {
           });
           setWeekNotes(notesMap);
         }
+
+        // Load progress (actual day)
+        const progressRes = await fetch('/api/progress');
+        if (progressRes.ok) {
+          const progressData = await progressRes.json();
+          const savedDay = progressData.currentDay || 1;
+          setActualDay(savedDay);
+          // Also cache in localStorage
+          localStorage.setItem('actualDay', savedDay.toString());
+        }
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -148,6 +165,47 @@ export default function App() {
       });
     } catch (error) {
       console.error('Error saving task:', error);
+    }
+  };
+
+  // Handle day complete - advance to next day
+  const handleDayComplete = async () => {
+    if (currentDay !== actualDay) {
+      // Safety check: should only be callable on actualDay
+      return;
+    }
+
+    const nextDay = actualDay + 1;
+
+    if (nextDay > 30) {
+      // Already at Day 30
+      alert('Congratulations! You\'ve completed all 30 days!');
+      return;
+    }
+
+    try {
+      // Update backend
+      const res = await fetch('/api/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update',
+          day: nextDay
+        })
+      });
+
+      if (res.ok) {
+        // Update state
+        setActualDay(nextDay);
+        setCurrentDay(nextDay); // Auto-navigate to next day
+        // Update localStorage
+        localStorage.setItem('actualDay', nextDay.toString());
+      } else {
+        const data = await res.json();
+        alert(`Error: ${data.error || 'Failed to update progress'}`);
+      }
+    } catch (err) {
+      alert('Network error. Please try again.');
     }
   };
 
@@ -287,6 +345,61 @@ export default function App() {
 
   const catColor = { Admin: 'bg-blue-100 text-blue-700', Technical: 'bg-purple-100 text-purple-700', Relationship: 'bg-green-100 text-green-700', Strategic: 'bg-orange-100 text-orange-700', Leadership: 'bg-pink-100 text-pink-700', 'Biz Dev': 'bg-yellow-100 text-yellow-700' };
 
+  // Helper function to get incomplete tasks from previous days
+  const getFollowUpTasks = () => {
+    // Don't show follow-ups on Day 1 or on days user hasn't reached yet
+    if (currentDay === 1 || currentDay > actualDay) return [];
+
+    // Filter: previous days only, incomplete only
+    const followUps = tasks.filter(t =>
+      t.day < currentDay && !completed[t.id]
+    );
+
+    // Group by week and day
+    const grouped = followUps.reduce((acc, task) => {
+      const key = `${task.week}-${task.day}`;
+      if (!acc[key]) {
+        acc[key] = {
+          week: task.week,
+          day: task.day,
+          tasks: []
+        };
+      }
+      acc[key].tasks.push(task);
+      return acc;
+    }, {});
+
+    // Return sorted groups (chronological order by day)
+    return Object.values(grouped).sort((a, b) => a.day - b.day);
+  };
+
+  // Helper function to get incomplete tasks from previous weeks
+  const getWeeklyFollowUpTasks = (week) => {
+    if (week === 1) return [];
+
+    // Filter: previous weeks only, incomplete only
+    const followUps = tasks.filter(t =>
+      t.week < week && !completed[t.id]
+    );
+
+    // Group by week and day
+    const grouped = followUps.reduce((acc, task) => {
+      const key = `${task.week}-${task.day}`;
+      if (!acc[key]) {
+        acc[key] = {
+          week: task.week,
+          day: task.day,
+          tasks: []
+        };
+      }
+      acc[key].tasks.push(task);
+      return acc;
+    }, {});
+
+    // Return sorted groups (chronological order by day)
+    return Object.values(grouped).sort((a, b) => a.day - b.day);
+  };
+
   // Show loading screen while checking auth
   if (authState === 'loading') {
     return (
@@ -364,7 +477,39 @@ export default function App() {
               <div className="bg-white rounded-xl p-4 shadow-sm"><div className="text-2xl font-bold text-yellow-500">{wins.length}</div><div className="text-xs text-slate-500">Wins Logged</div></div>
             </div>
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="bg-blue-600 text-white px-4 py-2 font-semibold">Day {currentDay} Tasks</div>
+              <div className="bg-blue-600 text-white px-4 py-2 font-semibold flex items-center justify-between">
+                <span>Day {currentDay} Tasks</span>
+
+                {/* Day Complete Button */}
+                {currentDay < actualDay && (
+                  // Past days: Red, disabled
+                  <button
+                    disabled
+                    className="px-4 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg cursor-not-allowed opacity-75"
+                  >
+                    Day Completed ✓
+                  </button>
+                )}
+                {currentDay === actualDay && actualDay < 30 && (
+                  // Current day: Green, clickable
+                  <button
+                    onClick={handleDayComplete}
+                    className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    Day Complete - Move to Next Day →
+                  </button>
+                )}
+                {currentDay === actualDay && actualDay === 30 && (
+                  // Day 30 completed: Red, disabled
+                  <button
+                    disabled
+                    className="px-4 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg cursor-not-allowed opacity-75"
+                  >
+                    Program Completed! 🎉
+                  </button>
+                )}
+                {/* Future days (currentDay > actualDay): No button shown */}
+              </div>
               {todayTasks.length ? todayTasks.map(t => (
                 <div key={t.id} onClick={() => toggle(t.id)} className="px-4 py-3 border-b flex items-center gap-3 cursor-pointer hover:bg-slate-50">
                   <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${completed[t.id] ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300'}`}>{completed[t.id] && '✓'}</span>
@@ -373,6 +518,48 @@ export default function App() {
                 </div>
               )) : <div className="p-8 text-center text-slate-400">No tasks for Day {currentDay}</div>}
             </div>
+
+            {/* Follow-up box for incomplete previous tasks */}
+            {getFollowUpTasks().length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div className="bg-orange-600 text-white px-4 py-2 font-semibold flex items-center gap-2">
+                  <span>⚠️</span>
+                  Need to Follow Up
+                </div>
+                {getFollowUpTasks().map(group => (
+                  <div key={`${group.week}-${group.day}`} className="border-b last:border-b-0">
+                    {/* Day section header */}
+                    <div className="px-4 py-2 bg-slate-50 text-sm font-semibold text-slate-600">
+                      Week {group.week} - Day {group.day}
+                    </div>
+                    {/* Task list for this day */}
+                    {group.tasks.map(t => (
+                      <div
+                        key={t.id}
+                        className="px-4 py-3 border-b border-slate-100 last:border-b-0 flex items-center gap-3 bg-orange-50"
+                      >
+                        {/* Read-only checkbox (no onClick) */}
+                        <span className="w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center text-xs opacity-50" />
+
+                        {/* Task description */}
+                        <span className="flex-1">{t.task}</span>
+
+                        {/* Category badge */}
+                        <span className={`text-xs px-2 py-0.5 rounded ${catColor[t.category]}`}>
+                          {t.category}
+                        </span>
+
+                        {/* Day indicator */}
+                        <span className="text-xs text-slate-400">
+                          Day {t.day}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="bg-white rounded-xl shadow-sm p-4">
               <div className="font-semibold mb-2">Quick Win</div>
               <div className="flex gap-2">
@@ -429,6 +616,47 @@ export default function App() {
                     <button onClick={() => setShowNewTaskForm(false)} className="px-4 py-2 bg-slate-200 rounded-lg">Cancel</button>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Follow-up box for incomplete tasks from previous weeks */}
+            {getWeeklyFollowUpTasks(selectedWeek).length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-4">
+                <div className="bg-orange-600 text-white px-4 py-2 font-semibold flex items-center gap-2">
+                  <span>⚠️</span>
+                  Need to Follow Up (Previous Weeks)
+                </div>
+                {getWeeklyFollowUpTasks(selectedWeek).map(group => (
+                  <div key={`${group.week}-${group.day}`} className="border-b last:border-b-0">
+                    {/* Day section header */}
+                    <div className="px-4 py-2 bg-slate-50 text-sm font-semibold text-slate-600">
+                      Week {group.week} - Day {group.day}
+                    </div>
+                    {/* Task list for this day */}
+                    {group.tasks.map(t => (
+                      <div
+                        key={t.id}
+                        className="px-4 py-3 border-b border-slate-100 last:border-b-0 flex items-center gap-3 bg-orange-50"
+                      >
+                        {/* Read-only checkbox (no onClick) */}
+                        <span className="w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center text-xs opacity-50" />
+
+                        {/* Task description */}
+                        <span className="flex-1">{t.task}</span>
+
+                        {/* Category badge */}
+                        <span className={`text-xs px-2 py-0.5 rounded ${catColor[t.category]}`}>
+                          {t.category}
+                        </span>
+
+                        {/* Day indicator */}
+                        <span className="text-xs text-slate-400">
+                          Day {t.day}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
             )}
 
