@@ -209,6 +209,40 @@ export default function App() {
     }
   };
 
+  // Handle undoing day completion - go back to previous day
+  const handleUndoDayComplete = async () => {
+    if (currentDay >= actualDay) {
+      // Can only undo if viewing a completed day
+      return;
+    }
+
+    const previousDay = currentDay;
+
+    try {
+      // Update backend to set actualDay back to the day being viewed
+      const res = await fetch('/api/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update',
+          day: previousDay
+        })
+      });
+
+      if (res.ok) {
+        // Update state
+        setActualDay(previousDay);
+        // Update localStorage
+        localStorage.setItem('actualDay', previousDay.toString());
+      } else {
+        const data = await res.json();
+        alert(`Error: ${data.error || 'Failed to update progress'}`);
+      }
+    } catch (err) {
+      alert('Network error. Please try again.');
+    }
+  };
+
   // Create new task
   const createTask = async () => {
     if (!newTask.task.trim()) {
@@ -482,12 +516,13 @@ export default function App() {
 
                 {/* Day Complete Button */}
                 {currentDay < actualDay && (
-                  // Past days: Red, disabled
+                  // Past days: Red, clickable to undo completion
                   <button
-                    disabled
-                    className="px-4 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg cursor-not-allowed opacity-75"
+                    onClick={handleUndoDayComplete}
+                    className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    title="Click to mark this day as incomplete and return to it"
                   >
-                    Day Completed ✓
+                    Day Completed ✓ (Click to Undo)
                   </button>
                 )}
                 {currentDay === actualDay && actualDay < 30 && (
