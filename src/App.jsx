@@ -425,9 +425,16 @@ export default function App() {
   const getWeeklyFollowUpTasks = (week) => {
     if (week === 1) return [];
 
-    // Filter: previous weeks only, incomplete only
+    // Calculate which week the user is actually on based on actualDay
+    // Week 1 = Days 1-7, Week 2 = Days 8-14, Week 3 = Days 15-21, Week 4 = Days 22-28
+    const actualWeek = Math.ceil(actualDay / 7);
+
+    // Don't show follow-ups if viewing a week beyond where user has actually reached
+    if (week > actualWeek) return [];
+
+    // Filter: previous weeks only, incomplete only, and only tasks before actualDay
     const followUps = tasks.filter(t =>
-      t.week < week && !completed[t.id]
+      t.week < week && !completed[t.id] && t.day < actualDay
     );
 
     // Group by week and day
