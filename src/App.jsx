@@ -163,6 +163,20 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, completed: newCompleted[id] })
       });
+
+      // Reload tasks from database to ensure sync
+      const tasksRes = await fetch('/api/tasks');
+      if (tasksRes.ok) {
+        const tasksData = await tasksRes.json();
+        setTasks(tasksData);
+
+        // Rebuild completed map from fresh data
+        const completedMap = {};
+        tasksData.forEach(task => {
+          if (task.status === 'completed') completedMap[task.id] = true;
+        });
+        setCompleted(completedMap);
+      }
     } catch (error) {
       console.error('Error saving task:', error);
     }
